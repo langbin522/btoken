@@ -18,6 +18,8 @@ import (
 
 // GfToken gtoken结构体
 type GfToken struct {
+	// GoFrame server name
+	ServerName string
 	// 缓存模式 1 gcache 2 gredis 默认1
 	CacheMode int8
 	// 缓存key
@@ -35,9 +37,73 @@ type GfToken struct {
 	// 是否支持多端登录，默认false
 	MultiLogin bool
 	// 是否是全局认证，兼容历史版本，已废弃
-	GlobalMiddleware bool
-	// 中间件类型 1 GroupMiddleware 2 BindMiddleware  3 GlobalMiddleware
-	MiddlewareType uint
+
+}
+
+/*
+// Login 登录
+func (m *GfToken) Login(r *ghttp.Request) {
+	userKey, data := m.LoginBeforeFunc(r)
+	if userKey == "" {
+		g.Log().Error(r.Context(), msgLog(MsgErrUserKeyEmpty))
+		return
+	}
+
+	if m.MultiLogin {
+		// 支持多端重复登录，返回相同token
+		userCacheResp := m.getToken(r.Context(), userKey)
+		if userCacheResp.Success() {
+			respToken := m.EncryptToken(r.Context(), userKey, userCacheResp.GetString(KeyUuid))
+			m.LoginAfterFunc(r, respToken)
+			return
+		}
+	}
+
+	// 生成token
+	respToken := m.genToken(r.Context(), userKey, data)
+	m.LoginAfterFunc(r, respToken)
+
+}
+
+// Logout 登出
+func (m *GfToken) Logout(r *ghttp.Request) {
+	if !m.LogoutBeforeFunc(r) {
+		return
+	}
+
+	// 获取请求token
+	respData := m.getRequestToken(r)
+	if respData.Success() {
+		// 删除token
+		m.RemoveToken(r.Context(), respData.DataString())
+	}
+
+	m.LogoutAfterFunc(r, respData)
+}
+
+// AuthMiddleware 认证拦截
+func (m *GfToken) authMiddleware(r *ghttp.Request) {
+	urlPath := r.URL.Path
+	if !m.AuthPath(r.Context(), urlPath) {
+		// 如果不需要认证，继续
+		r.Middleware.Next()
+		return
+	}
+
+	// 不需要认证，直接下一步
+	if !m.AuthBeforeFunc(r) {
+		r.Middleware.Next()
+		return
+	}
+
+	// 获取请求token
+	tokenResp := m.getRequestToken(r)
+	if tokenResp.Success() {
+		// 验证token
+		tokenResp = m.validToken(r.Context(), tokenResp.DataString())
+	}
+
+	m.AuthAfterFunc(r, tokenResp)
 }
 
 // GetTokenData 通过token获取对象
@@ -47,12 +113,12 @@ func (m *GfToken) GetTokenData(r *ghttp.Request) Resp {
 		// 验证token
 		respData = m.validToken(r.Context(), respData.DataString())
 	}
+
 	return respData
 }
 
 // AuthPath 判断路径是否需要进行认证拦截
 // return true 需要认证
-/*
 func (m *GfToken) AuthPath(ctx context.Context, urlPath string) bool {
 	// 去除后斜杠
 	if strings.HasSuffix(urlPath, "/") {
@@ -112,7 +178,7 @@ func (m *GfToken) AuthPath(ctx context.Context, urlPath string) bool {
 }
 */
 // getRequestToken 返回请求Token
-func (m *GfToken) getRequestToken(r *ghttp.Request) Resp {
+func (m *GfToken) GetRequestToken(r *ghttp.Request) Resp {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader != "" {
 		parts := strings.SplitN(authHeader, " ", 2)
@@ -136,7 +202,7 @@ func (m *GfToken) getRequestToken(r *ghttp.Request) Resp {
 }
 
 // genToken 生成Token
-func (m *GfToken) genToken(ctx context.Context, userKey string, data interface{}) Resp {
+func (m *GfToken) GenToken(ctx context.Context, userKey string, data interface{}) Resp {
 	token := m.EncryptToken(ctx, userKey, "")
 	if !token.Success() {
 		return token
@@ -160,7 +226,7 @@ func (m *GfToken) genToken(ctx context.Context, userKey string, data interface{}
 }
 
 // validToken 验证Token
-func (m *GfToken) validToken(ctx context.Context, token string) Resp {
+func (m *GfToken) ValidToken(ctx context.Context, token string) Resp {
 	if token == "" {
 		return Unauthorized(MsgErrTokenEmpty, "")
 	}
@@ -173,7 +239,7 @@ func (m *GfToken) validToken(ctx context.Context, token string) Resp {
 	userKey := decryptToken.GetString(KeyUserKey)
 	uuid := decryptToken.GetString(KeyUuid)
 
-	userCacheResp := m.getToken(ctx, userKey)
+	userCacheResp := m.GetToken(ctx, userKey)
 	if !userCacheResp.Success() {
 		return userCacheResp
 	}
@@ -187,7 +253,7 @@ func (m *GfToken) validToken(ctx context.Context, token string) Resp {
 }
 
 // getToken 通过userKey获取Token
-func (m *GfToken) getToken(ctx context.Context, userKey string) Resp {
+func (m *GfToken) GetToken(ctx context.Context, userKey string) Resp {
 	cacheKey := m.CacheKey + userKey
 
 	userCacheResp := m.getCache(ctx, cacheKey)
@@ -279,7 +345,6 @@ func (m *GfToken) DecryptToken(ctx context.Context, token string) Resp {
 	})
 }
 
-// InitConfig 初始化配置信息
 // String token解密方法
 func (m *GfToken) String() string {
 	return gconv.String(g.Map{
