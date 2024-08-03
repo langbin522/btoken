@@ -177,6 +177,17 @@ func (m *GfToken) AuthPath(ctx context.Context, urlPath string) bool {
 	return true
 }
 */
+// GetTokenData 通过token获取对象
+func (m *GfToken) GetTokenData(r *ghttp.Request) Resp {
+	respData := m.GetRequestToken(r)
+	if respData.Success() {
+		// 验证token
+		respData = m.ValidToken(r.Context(), respData.DataString())
+	}
+
+	return respData
+}
+
 // getRequestToken 返回请求Token
 func (m *GfToken) GetRequestToken(r *ghttp.Request) Resp {
 	authHeader := r.Header.Get("Authorization")
