@@ -9,7 +9,7 @@ import (
 func genToken() {
 	token := &btoken.Btoken{
 		CacheKey:       "bToken:",
-		CacheMode:      1,
+		CacheMode:      1, //1为内存模式 重启将会失效  2为redis模式，建议使用2
 		EncryptKey:     []byte("12345678912345678912345678912345"),
 		MaxRefresh:     10,
 		MultiLogin:     false,
