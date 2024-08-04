@@ -7,6 +7,7 @@
 使用方法
 1. 安装依懒
 2. 使用示例
+```bash
     var btoken = &gtoken.GfToken{
 			CacheMode:      2,
 			CacheKey:       "b_token",
@@ -26,3 +27,4 @@
 	if res.Success() {
 		return res.GetString("userKey"), res.Get("data"), nil
 	}
+```
