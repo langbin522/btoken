@@ -24,7 +24,7 @@ type GfToken struct {
 	CacheMode int8
 	// 缓存key
 	CacheKey string
-	// 超时时间 默认10天（毫秒）
+	// 超时时间 默认10天（秒）
 	Timeout int
 	// 缓存刷新时间 默认为超时时间的一半（毫秒）
 	MaxRefresh int
@@ -42,141 +42,162 @@ type GfToken struct {
 
 /*
 // Login 登录
-func (m *GfToken) Login(r *ghttp.Request) {
-	userKey, data := m.LoginBeforeFunc(r)
-	if userKey == "" {
-		g.Log().Error(r.Context(), msgLog(MsgErrUserKeyEmpty))
-		return
-	}
 
-	if m.MultiLogin {
-		// 支持多端重复登录，返回相同token
-		userCacheResp := m.getToken(r.Context(), userKey)
-		if userCacheResp.Success() {
-			respToken := m.EncryptToken(r.Context(), userKey, userCacheResp.GetString(KeyUuid))
-			m.LoginAfterFunc(r, respToken)
+	func (m *GfToken) Login(r *ghttp.Request) {
+		userKey, data := m.LoginBeforeFunc(r)
+		if userKey == "" {
+			g.Log().Error(r.Context(), msgLog(MsgErrUserKeyEmpty))
 			return
 		}
-	}
 
-	// 生成token
-	respToken := m.genToken(r.Context(), userKey, data)
-	m.LoginAfterFunc(r, respToken)
+		if m.MultiLogin {
+			// 支持多端重复登录，返回相同token
+			userCacheResp := m.getToken(r.Context(), userKey)
+			if userCacheResp.Success() {
+				respToken := m.EncryptToken(r.Context(), userKey, userCacheResp.GetString(KeyUuid))
+				m.LoginAfterFunc(r, respToken)
+				return
+			}
+		}
+
+		// 生成token
+		respToken := m.genToken(r.Context(), userKey, data)
+		m.LoginAfterFunc(r, respToken)
 
 }
 
 // Logout 登出
-func (m *GfToken) Logout(r *ghttp.Request) {
-	if !m.LogoutBeforeFunc(r) {
-		return
-	}
 
-	// 获取请求token
-	respData := m.getRequestToken(r)
-	if respData.Success() {
-		// 删除token
-		m.RemoveToken(r.Context(), respData.DataString())
-	}
+	func (m *GfToken) Logout(r *ghttp.Request) {
+		if !m.LogoutBeforeFunc(r) {
+			return
+		}
 
-	m.LogoutAfterFunc(r, respData)
-}
+		// 获取请求token
+		respData := m.getRequestToken(r)
+		if respData.Success() {
+			// 删除token
+			m.RemoveToken(r.Context(), respData.DataString())
+		}
+
+		m.LogoutAfterFunc(r, respData)
+	}
 
 // AuthMiddleware 认证拦截
-func (m *GfToken) authMiddleware(r *ghttp.Request) {
-	urlPath := r.URL.Path
-	if !m.AuthPath(r.Context(), urlPath) {
-		// 如果不需要认证，继续
-		r.Middleware.Next()
-		return
-	}
 
-	// 不需要认证，直接下一步
-	if !m.AuthBeforeFunc(r) {
-		r.Middleware.Next()
-		return
-	}
+	func (m *GfToken) authMiddleware(r *ghttp.Request) {
+		urlPath := r.URL.Path
+		if !m.AuthPath(r.Context(), urlPath) {
+			// 如果不需要认证，继续
+			r.Middleware.Next()
+			return
+		}
 
-	// 获取请求token
-	tokenResp := m.getRequestToken(r)
-	if tokenResp.Success() {
-		// 验证token
-		tokenResp = m.validToken(r.Context(), tokenResp.DataString())
-	}
+		// 不需要认证，直接下一步
+		if !m.AuthBeforeFunc(r) {
+			r.Middleware.Next()
+			return
+		}
 
-	m.AuthAfterFunc(r, tokenResp)
-}
+		// 获取请求token
+		tokenResp := m.getRequestToken(r)
+		if tokenResp.Success() {
+			// 验证token
+			tokenResp = m.validToken(r.Context(), tokenResp.DataString())
+		}
+
+		m.AuthAfterFunc(r, tokenResp)
+	}
 
 // GetTokenData 通过token获取对象
-func (m *GfToken) GetTokenData(r *ghttp.Request) Resp {
-	respData := m.getRequestToken(r)
-	if respData.Success() {
-		// 验证token
-		respData = m.validToken(r.Context(), respData.DataString())
-	}
 
-	return respData
-}
+	func (m *GfToken) GetTokenData(r *ghttp.Request) Resp {
+		respData := m.getRequestToken(r)
+		if respData.Success() {
+			// 验证token
+			respData = m.validToken(r.Context(), respData.DataString())
+		}
+
+		return respData
+	}
 
 // AuthPath 判断路径是否需要进行认证拦截
 // return true 需要认证
-func (m *GfToken) AuthPath(ctx context.Context, urlPath string) bool {
-	// 去除后斜杠
-	if strings.HasSuffix(urlPath, "/") {
-		urlPath = gstr.SubStr(urlPath, 0, len(urlPath)-1)
-	}
-	// 分组拦截，登录接口不拦截
-	if m.MiddlewareType == MiddlewareTypeGroup {
-		if (m.LoginPath != "" && gstr.HasSuffix(urlPath, m.LoginPath)) ||
-			(m.LogoutPath != "" && gstr.HasSuffix(urlPath, m.LogoutPath)) {
-			return false
-		}
-	}
 
-	// 全局处理，认证路径拦截处理
-	if m.MiddlewareType == MiddlewareTypeGlobal {
-		var authFlag bool
-		for _, authPath := range m.AuthPaths {
-			tmpPath := authPath
+	func (m *GfToken) AuthPath(ctx context.Context, urlPath string) bool {
+		// 去除后斜杠
+		if strings.HasSuffix(urlPath, "/") {
+			urlPath = gstr.SubStr(urlPath, 0, len(urlPath)-1)
+		}
+		// 分组拦截，登录接口不拦截
+		if m.MiddlewareType == MiddlewareTypeGroup {
+			if (m.LoginPath != "" && gstr.HasSuffix(urlPath, m.LoginPath)) ||
+				(m.LogoutPath != "" && gstr.HasSuffix(urlPath, m.LogoutPath)) {
+				return false
+			}
+		}
+
+		// 全局处理，认证路径拦截处理
+		if m.MiddlewareType == MiddlewareTypeGlobal {
+			var authFlag bool
+			for _, authPath := range m.AuthPaths {
+				tmpPath := authPath
+				if strings.HasSuffix(tmpPath, "/*") {
+					tmpPath = gstr.SubStr(tmpPath, 0, len(tmpPath)-2)
+				}
+				if gstr.HasPrefix(urlPath, tmpPath) {
+					authFlag = true
+					break
+				}
+			}
+
+			if !authFlag {
+				// 拦截路径不匹配
+				return false
+			}
+		}
+
+		// 排除路径处理，到这里nextFlag为true
+		for _, excludePath := range m.AuthExcludePaths {
+			tmpPath := excludePath
+			// 前缀匹配
 			if strings.HasSuffix(tmpPath, "/*") {
 				tmpPath = gstr.SubStr(tmpPath, 0, len(tmpPath)-2)
-			}
-			if gstr.HasPrefix(urlPath, tmpPath) {
-				authFlag = true
-				break
+				if gstr.HasPrefix(urlPath, tmpPath) {
+					// 前缀匹配不拦截
+					return false
+				}
+			} else {
+				// 全路径匹配
+				if strings.HasSuffix(tmpPath, "/") {
+					tmpPath = gstr.SubStr(tmpPath, 0, len(tmpPath)-1)
+				}
+				if urlPath == tmpPath {
+					// 全路径匹配不拦截
+					return false
+				}
 			}
 		}
 
-		if !authFlag {
-			// 拦截路径不匹配
-			return false
-		}
+		return true
 	}
-
-	// 排除路径处理，到这里nextFlag为true
-	for _, excludePath := range m.AuthExcludePaths {
-		tmpPath := excludePath
-		// 前缀匹配
-		if strings.HasSuffix(tmpPath, "/*") {
-			tmpPath = gstr.SubStr(tmpPath, 0, len(tmpPath)-2)
-			if gstr.HasPrefix(urlPath, tmpPath) {
-				// 前缀匹配不拦截
-				return false
-			}
-		} else {
-			// 全路径匹配
-			if strings.HasSuffix(tmpPath, "/") {
-				tmpPath = gstr.SubStr(tmpPath, 0, len(tmpPath)-1)
-			}
-			if urlPath == tmpPath {
-				// 全路径匹配不拦截
-				return false
-			}
-		}
-	}
-
-	return true
-}
 */
+func (m *GfToken) GenTokenWithMultiLogin(ctx context.Context, userKey string, data interface{}) Resp {
+
+	if m.MultiLogin {
+		// 支持多端重复登录，返回相同token
+		userCacheResp := m.GetToken(ctx, userKey)
+		if userCacheResp.Success() {
+			respToken := m.EncryptToken(ctx, userKey, userCacheResp.GetString(KeyUuid))
+			return respToken
+		}
+	}
+
+	// 生成token
+	respToken := m.GenToken(ctx, userKey, data)
+	return respToken
+}
+
 // GetTokenData 通过token获取对象
 func (m *GfToken) GetTokenData(r *ghttp.Request) Resp {
 	respData := m.GetRequestToken(r)

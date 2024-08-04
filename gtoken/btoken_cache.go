@@ -2,19 +2,20 @@ package gtoken
 
 import (
 	"context"
+	"time"
+
 	"github.com/gogf/gf/v2/encoding/gjson"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gcache"
 	"github.com/gogf/gf/v2/os/gfile"
 	"github.com/gogf/gf/v2/util/gconv"
-	"time"
 )
 
 // setCache 设置缓存
 func (m *GfToken) setCache(ctx context.Context, cacheKey string, userCache g.Map) Resp {
 	switch m.CacheMode {
 	case CacheModeCache, CacheModeFile:
-		gcache.Set(ctx, cacheKey, userCache, gconv.Duration(m.Timeout)*time.Millisecond)
+		gcache.Set(ctx, cacheKey, userCache, gconv.Duration(m.Timeout)*time.Second)
 		if m.CacheMode == CacheModeFile {
 			m.writeFileCache(ctx)
 		}
@@ -24,7 +25,7 @@ func (m *GfToken) setCache(ctx context.Context, cacheKey string, userCache g.Map
 			g.Log().Error(ctx, "[GToken]cache json encode error", err1)
 			return Error("cache json encode error")
 		}
-		_, err := g.Redis().Do(ctx, "SETEX", cacheKey, m.Timeout/1000, cacheValueJson)
+		_, err := g.Redis().Do(ctx, "SETEX", cacheKey, m.Timeout, cacheValueJson)
 		if err != nil {
 			g.Log().Error(ctx, "[GToken]cache set error", err)
 			return Error("cache set error")
